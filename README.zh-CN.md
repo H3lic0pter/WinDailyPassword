@@ -6,7 +6,7 @@
 
 架构与 API 注释均为英文 Rustdoc。运行 `cargo doc --no-deps --open` 查看公开架构；运行 `cargo doc --no-deps --document-private-items --open` 查看内部函数。
 
-核心规则在 [`src/password_rule.rs`](src/password_rule.rs) 的 `password_for(account, date)`。目前仅返回 `MMDD`，如 10 月 4 日返回 `1004`。这是可预测的临时规则，不适合保护真实账户；多账户配置也会因密码重复而被程序拒绝。正式使用前改成私密且按账户区分的规则，不要在聊天、日志或版本库中公开秘密。函数须对同一账户和日期始终返回同一密码；不同账户、不同日期应产生不同密码。账户改名后，先用恢复账户处理状态与规则映射。
+核心规则在 [`src/password_rule.rs`](src/password_rule.rs) 的 `password_for(account, date)`。目前仅返回 `MMDD`，如 10 月 4 日返回 `1004`。这是可预测的临时规则，不适合保护真实账户；多个账户可以使用相同的当天密码。正式使用前改成私密的确定性规则，不要在聊天、日志或版本库中公开秘密。同一账户和日期必须始终生成同一密码；同一账户的不同日期应产生不同密码，不同账户之间允许相同。账户改名后，先用恢复账户处理状态与规则映射。
 
 ## 查看和创建账户
 
@@ -35,16 +35,16 @@ SID 可跨 Windows 显示语言定位 Administrators 组。创建普通本地账
 ## 使用前
 
 1. 建立独立的本地管理员恢复账户，设固定强密码。**实际登录一次，确认可用**。不要将它写入 `account=` 行。
-2. 复制 `config.example.txt`，填入恢复账户和需要轮换的本地账户。`state_dir` 保持为 `C:\ProgramData\WinPasswordLock\state`。不要把系统账户、沙盒账户或不需要轮换的账户加入名单。
-3. 正式使用前替换临时的 `password_for`。电脑需要能在无人登录时计算上次日期和当天密码，所以规则必须确定性、完全离线。实现中不要输出密码。
-4. 在提升权限的 PowerShell 中构建：`cargo build --release`。先用 `cargo test` 检查日期和状态处理。
+2. 根据 `config.example.txt`，创建你的`config.local.txt`，填入恢复账户和需要轮换的本地账户。`state_dir` 保持为 `C:\ProgramData\WinPasswordLock\state`。不要把系统账户、沙盒账户或不需要轮换的账户加入名单。
+3. 正式使用前替换临时的 `password_rule`。电脑需要能在无人登录时计算上次日期和当天密码，所以规则必须确定性、完全离线。实现中不要输出密码。
+4. 在`password_rule.rs`修改密码规则后，在提升权限的 PowerShell 中构建：`cargo build --release`。先用 `cargo test` 检查日期和状态处理。
 
-配置示例，账户名按实际替换：
+配置示例，账户名按实际替换。你的`config.local.txt`应该类似：
 
 ```ini
 recovery_account=RescueAdmin
 state_dir=C:\ProgramData\WinPasswordLock\state
-account=YourLocalAccount
+account=<YourLocalAccount>
 ```
 
 ## 初始化每个账户
@@ -52,8 +52,8 @@ account=YourLocalAccount
 在提升权限的交互式 PowerShell 中执行，下面路径和账户名按实际情况替换：
 
 ```powershell
-$app = 'C:\RIP_D\Codes\CPP\WinPasswordLock\target\release\win-password-lock.exe'
-$config = 'C:\RIP_D\Codes\CPP\WinPasswordLock\config.local.txt'
+$app = '.\target\release\win-password-lock.exe'
+$config = '.\config.local.txt'
 & $app status --config $config
 & $app enroll --config $config YourLocalAccount
 & $app check --config $config
@@ -66,7 +66,7 @@ $config = 'C:\RIP_D\Codes\CPP\WinPasswordLock\config.local.txt'
 确认当天密码可实际登录后，在提升权限的 PowerShell 中执行：
 
 ```powershell
-.\scripts\Install-Task.ps1 -Executable .\target\release\win-password-lock.exe -Config .\config.local.txt
+.\scripts\Install-Task.ps1 -Executable ".\target\release\win-password-lock.exe" -Config ".\config.local.txt"
 ```
 
 脚本会确认恢复账户属于本地 Administrators 组，将程序和配置复制到受限的 `C:\ProgramData\WinPasswordLock`，检查所有账户状态，然后注册以 `SYSTEM` 身份运行的开机及每日 00:00 任务。安装脚本本身不改密码。规则代码修改后，重新构建并重跑安装脚本，才会更新已安装程序。卸载任务用 `scripts/Uninstall-Task.ps1`；卸载不会把账户密码改回旧值。

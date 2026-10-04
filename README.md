@@ -4,15 +4,13 @@
 
 WinPasswordLock rotates actual Windows local-account passwords using the computer's local date, entirely offline. Only explicitly configured accounts are managed. A separate local administrator keeps a fixed strong password for manual recovery.
 
-## Architecture and password rule
-
 All architecture and API comments are in English. Run `cargo doc --no-deps --open` for public documentation, or `cargo doc --no-deps --document-private-items --open` to include internal functions.
 
-The rule is `password_for(account, date)` in [`src/password_rule.rs`](src/password_rule.rs). Its temporary implementation returns `MMDD`: October 4 becomes `1004`. This is predictable, repeats annually, and is unsuitable for real accounts. Multiple managed accounts are rejected because their passwords are identical.
+The rule is `password_for(account, date)` in [`src/password_rule.rs`](src/password_rule.rs). Its temporary implementation returns `MMDD`: October 4 becomes `1004`. This is predictable, repeats annually, and is unsuitable for real accounts. Multiple managed accounts may share the same daily password.
 
-Replace it with a private deterministic rule before deployment. The same account and date must always produce the same password; different accounts and dates should produce different passwords. Keep secrets out of chat, logs, and version control. Account renaming requires updating the rule and state mapping. Changing the rule for previously applied dates can prevent rotation.
+Replace it with a private deterministic rule before deployment. The same account and date must always produce the same password; different dates for that account should produce different passwords. Passwords may be identical across accounts. Keep secrets out of chat, logs, and version control. Account renaming requires updating the rule and state mapping. Changing the rule for previously applied dates can prevent rotation.
 
-## Inspect accounts
+## Inspect and create accounts
 
 Run in your own PowerShell window:
 
@@ -25,8 +23,6 @@ Get-LocalUser | Select-Object Name, Enabled
 
 `Administrator`, `DefaultAccount`, `Guest`, and `WDAGUtilityAccount` are built-in Windows accounts. `CodexSandboxOffline` and `CodexSandboxOnline` belong to the Codex execution environment. Only configure personal accounts you intend to rotate; exclude system and sandbox accounts.
 
-## Create a recovery administrator
-
 Open PowerShell as administrator. Choose an unused account name:
 
 ```powershell
@@ -38,25 +34,30 @@ Add-LocalGroupMember -Group $adminGroup -Member 'RescueAdmin'
 
 The SID identifies the Administrators group regardless of Windows display language. To create an ordinary local account, use `New-LocalUser` with its own password and omit adding it to the administrator group. **Sign in to the recovery account once to verify it works.** Keep its password available offline. See [New-LocalUser](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/new-localuser?view=powershell-5.1).
 
-## Configure, build, and enroll
+## Before use
 
-Copy `config.example.txt` to `config.local.txt` and replace the account names:
+1. Create a separate local administrator recovery account with a fixed strong password. **Sign in once to verify it works.** Never include it in an `account=` line.
+2. Create your `config.local.txt` using `config.example.txt` as a reference. Specify the recovery account and the local accounts to rotate. Keep `state_dir` at `C:\ProgramData\WinPasswordLock\state`. Exclude system accounts, sandbox accounts, and accounts that do not need rotation.
+3. Replace the temporary `password_rule` before deployment. The computer must calculate both the previous date's password and today's password without anyone signed in, so the rule must be deterministic and fully offline. Do not print passwords.
+4. After editing the rule in `password_rule.rs`, build in elevated PowerShell with `cargo build --release`. First run `cargo test` to check date and state handling.
+
+Replace the example account name with your actual account name; omit the angle brackets. Your `config.local.txt` should resemble:
 
 ```ini
 recovery_account=RescueAdmin
 state_dir=C:\ProgramData\WinPasswordLock\state
-account=YourLocalAccount
+account=<YourLocalAccount>
 ```
 
-Repeat `account=` for each managed account. Never include the recovery account in those lines. Keep the shown state directory when using the installation script. Replace the temporary rule and test on a disposable local account before deployment.
+Repeat `account=` for each managed account.
 
-In elevated interactive PowerShell, build and enroll each account. Adjust paths and names:
+## Enroll each account
+
+From the project directory, run in elevated interactive PowerShell. Adjust paths and account names as needed:
 
 ```powershell
-cargo test
-cargo build --release
-$app = 'C:\RIP_D\Codes\CPP\WinPasswordLock\target\release\win-password-lock.exe'
-$config = 'C:\RIP_D\Codes\CPP\WinPasswordLock\config.local.txt'
+$app = '.\target\release\win-password-lock.exe'
+$config = '.\config.local.txt'
 & $app status --config $config
 & $app enroll --config $config YourLocalAccount
 & $app check --config $config
@@ -69,10 +70,10 @@ $config = 'C:\RIP_D\Codes\CPP\WinPasswordLock\config.local.txt'
 Verify today's password and the recovery account both work. From the project directory, run in elevated PowerShell:
 
 ```powershell
-.\scripts\Install-Task.ps1 -Executable .\target\release\win-password-lock.exe -Config .\config.local.txt
+.\scripts\Install-Task.ps1 -Executable ".\target\release\win-password-lock.exe" -Config ".\config.local.txt"
 ```
 
-The script verifies recovery-administrator membership, copies the executable and configuration into the protected `C:\ProgramData\WinPasswordLock` directory, checks state, and registers `WinPasswordLock-Rotate` under `SYSTEM` at startup and daily at 00:00. Installation itself does not change passwords. After editing the rule, rebuild and rerun installation to update the installed executable.
+The script verifies recovery-administrator membership, copies the executable and configuration into the protected `C:\ProgramData\WinPasswordLock` directory, checks state, and registers `WinPasswordLock-Rotate` under `SYSTEM` at startup and daily at 00:00. Installation itself does not change passwords. After editing the rule, rebuild and rerun installation to update the installed executable. Remove the task with `scripts/Uninstall-Task.ps1`; this does not restore an old password.
 
 The installed executable supports `status`, `check`, and `rotate`. **`rotate` changes real passwords.**
 
