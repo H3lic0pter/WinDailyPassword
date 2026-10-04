@@ -4,11 +4,16 @@
 
 WinPasswordLock rotates actual Windows local-account passwords using the computer's local date, entirely offline. Only explicitly configured accounts are managed. A separate local administrator keeps a fixed strong password for manual recovery.
 
-All architecture and API comments are in English. Run `cargo doc --no-deps --open` for public documentation, or `cargo doc --no-deps --document-private-items --open` to include internal functions.
+Run `cargo doc --no-deps --open` for public documentation
+Run `cargo doc --no-deps --document-private-items --open` to include internal functions.
 
-The rule is `password_for(account, date)` in [`src/password_rule.rs`](src/password_rule.rs). Its temporary implementation returns `MMDD`: October 4 becomes `1004`. This is predictable, repeats annually, and is unsuitable for real accounts. Multiple managed accounts may share the same daily password.
+The rule is `password_for(account, date)` in [`src/password_rule.rs`](src/password_rule.rs).
+Its temporary implementation returns `MMDD`: October 4 becomes `1004`.
+Multiple managed accounts may share the same daily password.
 
-Replace it with a private deterministic rule before deployment. The same account and date must always produce the same password; different dates for that account should produce different passwords. Passwords may be identical across accounts. Keep secrets out of chat, logs, and version control. Account renaming requires updating the rule and state mapping. Changing the rule for previously applied dates can prevent rotation.
+**Replace it with a private deterministic rule by coding in `password_for(account, date)` before deployment**.
+
+The same account and date must always produce the same password; different dates for that account should produce different passwords. Passwords may be identical across accounts. Keep secrets out of chat, logs, and version control. Account renaming requires updating the rule and state mapping. Changing the rule for previously applied dates can prevent rotation.
 
 ## Usage
 

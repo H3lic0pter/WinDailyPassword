@@ -4,9 +4,13 @@
 
 本项目为 Windows 本地账户按本机日期轮换**真实账户密码**。仅处理配置中明确列出的账户。一个独立的本地管理员账户保持固定强密码，供故障恢复。
 
-架构与 API 注释均为英文 Rustdoc。运行 `cargo doc --no-deps --open` 查看公开架构；运行 `cargo doc --no-deps --document-private-items --open` 查看内部函数。
+运行 `cargo doc --no-deps --open` 查看公开架构；
+运行 `cargo doc --no-deps --document-private-items --open` 查看内部函数。
 
-核心规则在 [`src/password_rule.rs`](src/password_rule.rs) 的 `password_for(account, date)`。目前仅返回 `MMDD`，如 10 月 4 日返回 `1004`。这是可预测的临时规则，不适合保护真实账户；多个账户可以使用相同的当天密码。正式使用前改成私密的确定性规则，不要在聊天、日志或版本库中公开秘密。同一账户和日期必须始终生成同一密码；同一账户的不同日期应产生不同密码，不同账户之间允许相同。账户改名后，先用恢复账户处理状态与规则映射。
+核心规则在 [`src/password_rule.rs`](src/password_rule.rs) 的 `password_for(account, date)`。
+目前仅返回 `MMDD`，如 10 月 4 日返回 `1004`。多个账户可以使用相同的当天密码。
+
+**正式使用前通过在`src/password_rule.rs`编写代码改成私密的确定性规则**，不要在聊天、日志或版本库中公开秘密。同一账户和日期必须始终生成同一密码；同一账户的不同日期应产生不同密码，不同账户之间允许相同。账户改名后，先用恢复账户处理状态与规则映射。
 
 ## 使用方法
 
