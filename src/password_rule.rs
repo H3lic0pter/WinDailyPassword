@@ -6,7 +6,7 @@
 use crate::date::Date;
 
 /// Temporary rule: use the local month and day as a four-digit password.
-/// Replace this with a private, account-specific rule before deployment.
+/// Replace this with a private rule before deployment; accounts may share values.
 ///
 /// # Example
 ///

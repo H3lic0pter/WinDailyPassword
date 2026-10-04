@@ -2,4 +2,4 @@
 # Create and test the recovery administrator before enrolling daily accounts.
 recovery_account=RescueAdmin
 state_dir=C:\ProgramData\WinPasswordLock\state
-account=wzl2
+account=<YourLocalAccount>

@@ -114,6 +114,7 @@ unsafe extern "system" {
 
 /// Encodes a Rust string as a null-terminated UTF-16 Windows string.
 fn wide(value: &str) -> Vec<u16> {
+    // Add \0 to the char* end
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
@@ -241,7 +242,7 @@ impl Drop for ConsoleModeGuard {
 
 /// Reads a current account password from a console without echoing characters.
 pub fn read_password(prompt: &str) -> Result<String, String> {
-    let handle = unsafe { GetStdHandle((-10i32) as u32) };
+    let handle = unsafe { GetStdHandle((-10i32) as u32) }; // Console Input handle
     if handle.is_null() || handle as isize == -1 {
         return Err("enroll requires an interactive Windows console".into());
     }
@@ -252,6 +253,7 @@ pub fn read_password(prompt: &str) -> Result<String, String> {
     print!("{prompt}");
     io::stdout().flush().map_err(|error| error.to_string())?;
     if unsafe { SetConsoleMode(handle, mode & !0x0004) } == 0 {
+        // Disable ENABLE_ECHO_INPUT 0x0004
         return Err(format!("SetConsoleMode failed: {}", unsafe {
             GetLastError()
         }));

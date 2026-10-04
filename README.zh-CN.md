@@ -8,7 +8,9 @@
 
 核心规则在 [`src/password_rule.rs`](src/password_rule.rs) 的 `password_for(account, date)`。目前仅返回 `MMDD`，如 10 月 4 日返回 `1004`。这是可预测的临时规则，不适合保护真实账户；多个账户可以使用相同的当天密码。正式使用前改成私密的确定性规则，不要在聊天、日志或版本库中公开秘密。同一账户和日期必须始终生成同一密码；同一账户的不同日期应产生不同密码，不同账户之间允许相同。账户改名后，先用恢复账户处理状态与规则映射。
 
-## 查看和创建账户
+## 使用方法
+
+### 1. 查看和创建账户
 
 在你自己打开的 PowerShell 中查看当前进程身份和全部本地账户：
 
@@ -32,7 +34,7 @@ Add-LocalGroupMember -Group $adminGroup -Member 'RescueAdmin'
 
 SID 可跨 Windows 显示语言定位 Administrators 组。创建普通本地账户时，用它自己的密码执行 `New-LocalUser`，省略加入管理员组的命令。实际登录备用账户一次，确认可用，并离线保存其密码。参见 [Microsoft 创建账户文档](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/new-localuser?view=powershell-5.1)。
 
-## 使用前
+### 2. 使用前
 
 1. 建立独立的本地管理员恢复账户，设固定强密码。**实际登录一次，确认可用**。不要将它写入 `account=` 行。
 2. 根据 `config.example.txt`，创建你的`config.local.txt`，填入恢复账户和需要轮换的本地账户。`state_dir` 保持为 `C:\ProgramData\WinPasswordLock\state`。不要把系统账户、沙盒账户或不需要轮换的账户加入名单。
@@ -47,7 +49,7 @@ state_dir=C:\ProgramData\WinPasswordLock\state
 account=<YourLocalAccount>
 ```
 
-## 初始化每个账户
+### 3. 初始化每个账户
 
 在提升权限的交互式 PowerShell 中执行，下面路径和账户名按实际情况替换：
 
@@ -61,7 +63,7 @@ $config = '.\config.local.txt'
 
 `enroll` 会隐藏输入现有密码，然后通过 Windows 的 `NetUserChangePassword` 把账户密码改为规则生成的当天密码。每个 `account=` 都要分别初始化。`check` 仅检查，不改密码；所有账户完成初始化后才会通过。账户密码策略可能拒绝规则生成的密码，错误会带 Windows 状态码。
 
-## 注册定时任务
+### 4. 注册定时任务
 
 确认当天密码可实际登录后，在提升权限的 PowerShell 中执行：
 

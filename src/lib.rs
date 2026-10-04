@@ -41,7 +41,6 @@ compile_error!("WinPasswordLock only supports Windows");
 use config::Config;
 use date::Date;
 use state::State;
-use std::collections::HashSet;
 use std::env;
 use std::path::{Path, PathBuf};
 
@@ -72,18 +71,13 @@ fn password_for(account: &str, date: Date) -> Result<String, String> {
     Ok(password)
 }
 
-/// Rejects duplicate passwords across managed accounts for one date.
-fn check_unique_today(config: &Config, today: Date) -> Result<Vec<String>, String> {
-    let mut passwords = Vec::new();
-    let mut seen = HashSet::new();
-    for account in &config.accounts {
-        let password = password_for(account, today)?;
-        if !seen.insert(password.clone()) {
-            return Err("rule generated the same daily password for multiple accounts".into());
-        }
-        passwords.push(password);
-    }
-    Ok(passwords)
+/// Derives today's passwords in configuration order
+fn derive_today_passwords(config: &Config, today: Date) -> Result<Vec<String>, String> {
+    config
+        .accounts
+        .iter()
+        .map(|account| password_for(account, today))
+        .collect()
 }
 
 /// Checks that the recovery and managed accounts exist and are enabled.
@@ -101,9 +95,10 @@ fn check_local_accounts(config: &Config) -> Result<(), String> {
 /// Prepares every account before any password change is attempted.
 fn prepare(config: &Config, today: Date) -> Result<Vec<AccountPlan>, String> {
     check_local_accounts(config)?;
-    let today_passwords = check_unique_today(config, today)?;
+    let today_passwords = derive_today_passwords(config, today)?;
     let mut plans = Vec::new();
     for (account, today_password) in config.accounts.iter().zip(today_passwords) {
+        // account's info file path
         let path = state::path_for(&config.state_dir, account);
         let state = state::load(&path)?
             .ok_or_else(|| format!("{account:?} is not enrolled; run enroll first"))?;
@@ -112,11 +107,13 @@ fn prepare(config: &Config, today: Date) -> Result<Vec<AccountPlan>, String> {
                 "clock moved backward for {account:?}; stored date is later than {today}"
             ));
         }
+
         let current_password = password_for(account, state.current)?;
         let pending_password = state
             .pending
             .map(|date| password_for(account, date))
             .transpose()?;
+        // two password cannot be same
         if pending_password
             .as_ref()
             .is_some_and(|password| password == &current_password)
@@ -223,14 +220,14 @@ fn enroll(config: &Config, account: &str, today: Date) -> Result<(), String> {
     if state::load(&path)?.is_some() {
         return Err(format!("{account:?} is already enrolled"));
     }
-    let passwords = check_unique_today(config, today)?;
+    let passwords = derive_today_passwords(config, today)?;
     let index = config
         .accounts
         .iter()
         .position(|name| name == account)
         .unwrap();
     let new_password = &passwords[index];
-    let old_password =
+    let old_password = // read old password from console
         windows::read_password(&format!("Current Windows password for {account}: "))?;
     if old_password != *new_password {
         change_or_confirm(account, &old_password, new_password)?;
@@ -309,5 +306,25 @@ pub fn run_cli() -> Result<(), String> {
             Ok(())
         }
         _ => Err("invalid command arguments".into()),
+    }
+}
+
+#[cfg(test)]
+/// Regression tests for password preparation without Windows password changes.
+mod tests {
+    use super::{Config, Date, derive_today_passwords};
+    use std::path::PathBuf;
+
+    #[test]
+    /// Distinct accounts may receive the same password from the temporary rule.
+    fn allows_shared_daily_passwords() {
+        let config = Config {
+            recovery_account: "RescueAdmin".into(),
+            accounts: vec!["Alice".into(), "Bob".into()],
+            state_dir: PathBuf::from(r"C:\ProgramData\WinPasswordLock\state"),
+        };
+        let passwords = derive_today_passwords(&config, Date::parse("20261004").unwrap())
+            .expect("shared passwords should be accepted");
+        assert_eq!(passwords, vec!["1004", "1004"]);
     }
 }

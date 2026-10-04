@@ -18,6 +18,7 @@ pub struct State {
 pub fn path_for(dir: &Path, account: &str) -> PathBuf {
     let mut file_name = String::from("account-");
     let normalized = account.to_lowercase();
+    // account name in hex
     for byte in normalized.as_bytes() {
         file_name.push_str(&format!("{byte:02x}"));
     }
@@ -25,7 +26,7 @@ pub fn path_for(dir: &Path, account: &str) -> PathBuf {
     dir.join(file_name)
 }
 
-/// Reads and validates an account state file, if one exists.
+/// Reads and validates an account state file, if one exists. state is YYYYMMDD like
 pub fn load(path: &Path) -> Result<Option<State>, String> {
     let text = match fs::read_to_string(path) {
         Ok(text) => text,

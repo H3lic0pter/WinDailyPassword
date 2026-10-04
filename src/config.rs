@@ -28,8 +28,10 @@ impl Config {
         let mut recovery_account = None;
         let mut state_dir = None;
         let mut accounts = Vec::new();
+        // Remove BOM
         for (index, raw_line) in text.trim_start_matches('\u{feff}').lines().enumerate() {
             let line = raw_line.trim();
+            // Remove comment
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }

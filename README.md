@@ -10,7 +10,9 @@ The rule is `password_for(account, date)` in [`src/password_rule.rs`](src/passwo
 
 Replace it with a private deterministic rule before deployment. The same account and date must always produce the same password; different dates for that account should produce different passwords. Passwords may be identical across accounts. Keep secrets out of chat, logs, and version control. Account renaming requires updating the rule and state mapping. Changing the rule for previously applied dates can prevent rotation.
 
-## Inspect and create accounts
+## Usage
+
+### 1. Inspect and create accounts
 
 Run in your own PowerShell window:
 
@@ -34,7 +36,7 @@ Add-LocalGroupMember -Group $adminGroup -Member 'RescueAdmin'
 
 The SID identifies the Administrators group regardless of Windows display language. To create an ordinary local account, use `New-LocalUser` with its own password and omit adding it to the administrator group. **Sign in to the recovery account once to verify it works.** Keep its password available offline. See [New-LocalUser](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/new-localuser?view=powershell-5.1).
 
-## Before use
+### 2. Before use
 
 1. Create a separate local administrator recovery account with a fixed strong password. **Sign in once to verify it works.** Never include it in an `account=` line.
 2. Create your `config.local.txt` using `config.example.txt` as a reference. Specify the recovery account and the local accounts to rotate. Keep `state_dir` at `C:\ProgramData\WinPasswordLock\state`. Exclude system accounts, sandbox accounts, and accounts that do not need rotation.
@@ -51,7 +53,7 @@ account=<YourLocalAccount>
 
 Repeat `account=` for each managed account.
 
-## Enroll each account
+### 3. Enroll each account
 
 From the project directory, run in elevated interactive PowerShell. Adjust paths and account names as needed:
 
@@ -65,7 +67,7 @@ $config = '.\config.local.txt'
 
 `enroll` hides input of the existing password and immediately changes the real account password to today's derived value through `NetUserChangePassword`. Enroll each account separately. `check` does not change passwords; all configured accounts must be enrolled for it to pass. Windows password policy may reject a derived password; errors include the Windows status code.
 
-## Install scheduled rotation
+### 4. Install scheduled rotation
 
 Verify today's password and the recovery account both work. From the project directory, run in elevated PowerShell:
 
